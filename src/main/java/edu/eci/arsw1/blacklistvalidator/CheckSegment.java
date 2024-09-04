@@ -2,45 +2,32 @@ package edu.eci.arsw1.blacklistvalidator;
 
 import edu.eci.arsw1.spamkeywordsdatasource.HostBlacklistsDataSourceFacade;
 
-import java.util.LinkedList;
-import java.util.List;
-
-/**
- * CheckSegment class to check a segment of blacklist servers.
- */
 public class CheckSegment extends Thread {
 
     private HostBlacklistsDataSourceFacade dataSource;
     private int startIndex;
     private int endIndex;
     private String ipaddress;
-    private List<Integer> blacklists;
-    private int occurrences;
+    private SharedState sharedState;
 
-    public CheckSegment(HostBlacklistsDataSourceFacade dataSource, int startIndex, int endIndex, String ipaddress) {
+    public CheckSegment(HostBlacklistsDataSourceFacade dataSource, int startIndex, int endIndex, String ipaddress, SharedState sharedState) {
         this.dataSource = dataSource;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
         this.ipaddress = ipaddress;
-        this.blacklists = new LinkedList<>();
-        this.occurrences = 0;
+        this.sharedState = sharedState;
     }
 
     @Override
     public void run() {
-        for (int i = startIndex; i < endIndex; i++) {
+        for (int i = startIndex; i < endIndex && !sharedState.shouldStop(); i++) {
             if (dataSource.isInBlackListServer(i, ipaddress)) {
-                blacklists.add(i);
-                occurrences++;
+                sharedState.addOccurrence(i);
+                if (sharedState.getTotalOccurrences() >= HostBlackListsValidator.BLACK_LIST_ALARM_COUNT) {
+                    sharedState.requestStop();
+                    break;
+                }
             }
         }
-    }
-
-    public List<Integer> getBlacklists() {
-        return blacklists;
-    }
-
-    public int getOccurrences() {
-        return occurrences;
     }
 }
